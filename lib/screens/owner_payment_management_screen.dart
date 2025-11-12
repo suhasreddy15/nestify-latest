@@ -205,6 +205,7 @@ class _OwnerPaymentManagementScreenState extends State<OwnerPaymentManagementScr
     Map<String, dynamic>? selectedStudent;
     final amountController = TextEditingController();
     DateTime selectedDate = DateTime.now();
+    String? selectedPaymentMethod;
 
     showDialog(
       context: context,
@@ -276,6 +277,26 @@ class _OwnerPaymentManagementScreenState extends State<OwnerPaymentManagementScr
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+                const Text('Payment Method (Optional)', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: selectedPaymentMethod,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Select payment method',
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Cash', child: Text('Cash')),
+                    DropdownMenuItem(value: 'Online Transfer', child: Text('Online Transfer')),
+                    DropdownMenuItem(value: 'UPI', child: Text('UPI')),
+                    DropdownMenuItem(value: 'Cheque', child: Text('Cheque')),
+                    DropdownMenuItem(value: 'Card', child: Text('Card')),
+                  ],
+                  onChanged: (value) {
+                    setState(() => selectedPaymentMethod = value);
+                  },
+                ),
               ],
             ),
           ),
@@ -332,6 +353,7 @@ class _OwnerPaymentManagementScreenState extends State<OwnerPaymentManagementScr
                     roomNumber: selectedStudent!['roomNumber'] ?? 'N/A',
                     amount: amount,
                     paymentDate: selectedDate,
+                    paymentMethod: selectedPaymentMethod,
                   );
 
                   if (mounted) {
@@ -382,6 +404,9 @@ class _OwnerPaymentManagementScreenState extends State<OwnerPaymentManagementScr
                 'Payment Date:',
                 DateFormat('MMM dd, yyyy').format(payment.paymentDate),
               ),
+              if (payment.paymentMethod != null)
+                _buildDetailRow('Payment Method:', payment.paymentMethod!),
+              _buildDetailRow('Status:', payment.status.toUpperCase()),
               _buildDetailRow(
                 'Created:',
                 DateFormat('MMM dd, yyyy hh:mm a').format(payment.createdAt),

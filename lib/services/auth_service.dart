@@ -10,7 +10,13 @@ class AuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
+  // Stream that provides real-time authentication state
+  // This enables persistent login - when app restarts, if user is logged in,
+  // this stream automatically provides the user, keeping them signed in
   Stream<User?> get user => _auth.authStateChanges();
+  
+  // Get current user synchronously (for immediate checks)
+  User? get currentUser => _auth.currentUser;
 
   Future<UserCredential> signInWithEmail(String email, String password) async {
     return await _auth.signInWithEmailAndPassword(email: email, password: password);
@@ -113,19 +119,34 @@ class AuthService {
     return null;
   }
 
+  /// Sign out user and clear all session data
+  /// This will trigger authStateChanges() stream to emit null,
+  /// causing AuthWrapper to redirect to WelcomeScreen automatically
   Future<void> signOut() async {
-    // Always sign out from Firebase first
-    await _auth.signOut();
-
-    // Try to sign out from Google Sign-In, but ignore any errors
-    // This is wrapped in try-catch because:
-    // 1. User might not have signed in with Google
-    // 2. Google Sign-In web requires clientId configuration
     try {
-      await _googleSignIn.signOut();
+      // Note: FCM token cleanup is handled by AuthWrapper's _cleanupNotifications()
+      // which is called when auth state changes to null
+      
+      // Always sign out from Firebase first
+      // This clears the persistent session stored by Firebase Auth
+      await _auth.signOut();
+
+      // Try to sign out from Google Sign-In, but ignore any errors
+      // This is wrapped in try-catch because:
+      // 1. User might not have signed in with Google
+      // 2. Google Sign-In web requires clientId configuration
+      try {
+        await _googleSignIn.signOut();
+      } catch (e) {
+        // Silently ignore Google Sign-In errors
+        // This is expected when user didn't use Google Sign-In
+        print('Google Sign-In signout skipped: $e');
+      }
+      
+      print('✅ User signed out successfully');
     } catch (e) {
-      // Silently ignore Google Sign-In errors
-      // This is expected when user didn't use Google Sign-In
+      print('❌ Error during sign out: $e');
+      rethrow;
     }
   }
 }

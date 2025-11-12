@@ -202,11 +202,22 @@ class _OwnerComplaintListScreenState extends State<OwnerComplaintListScreen> {
                 statusFilter: _selectedFilter == 'all' ? null : _selectedFilter,
               ),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                // Show loading only on initial load
+                if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Loading complaints...'),
+                      ],
+                    ),
+                  );
                 }
 
                 if (snapshot.hasError) {
+                  print('Complaint stream error: ${snapshot.error}');
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -224,6 +235,14 @@ class _OwnerComplaintListScreenState extends State<OwnerComplaintListScreen> {
                             '${snapshot.error}',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey[600]),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              setState(() {}); // Refresh
+                            },
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry'),
                           ),
                         ],
                       ),

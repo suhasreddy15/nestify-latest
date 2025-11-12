@@ -11,6 +11,8 @@ class Payment {
   final String createdBy;
   final DateTime createdAt;
   final String? roomNumber;
+  final String status; // 'paid' or 'pending'
+  final String? paymentMethod; // Optional: 'cash', 'online', 'upi', etc.
 
   Payment({
     required this.id,
@@ -23,6 +25,8 @@ class Payment {
     required this.createdBy,
     required this.createdAt,
     this.roomNumber,
+    this.status = 'paid', // Default to paid for backward compatibility
+    this.paymentMethod,
   });
 
   factory Payment.fromFirestore(DocumentSnapshot doc) {
@@ -38,6 +42,8 @@ class Payment {
       createdBy: data['createdBy'] ?? '',
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       roomNumber: data['roomNumber'],
+      status: data['status'] ?? 'paid',
+      paymentMethod: data['paymentMethod'],
     );
   }
 
@@ -52,6 +58,8 @@ class Payment {
       'createdBy': createdBy,
       'createdAt': Timestamp.fromDate(createdAt),
       'roomNumber': roomNumber,
+      'status': status,
+      'paymentMethod': paymentMethod,
     };
   }
 }

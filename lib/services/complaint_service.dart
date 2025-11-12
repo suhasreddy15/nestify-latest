@@ -47,14 +47,31 @@ class ComplaintService {
 
   // Get all complaints (for owners) with optional status filter
   Stream<List<Complaint>> getAllComplaints({String? statusFilter}) {
-    Query query = _firestore.collection('complaints');
+    // Fetch all complaints ordered by timestamp
+    return _firestore
+        .collection('complaints')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      // Convert documents to Complaint objects
+      final complaints = snapshot.docs
+          .map((doc) {
+            try {
+              return Complaint.fromFirestore(doc);
+            } catch (e) {
+              print('Error parsing complaint ${doc.id}: $e');
+              return null;
+            }
+          })
+          .whereType<Complaint>() // Filter out null values
+          .toList();
 
-    if (statusFilter != null && statusFilter.isNotEmpty) {
-      query = query.where('status', isEqualTo: statusFilter);
-    }
+      // Apply status filter in memory (to avoid needing composite index)
+      if (statusFilter != null && statusFilter.isNotEmpty) {
+        return complaints.where((c) => c.status == statusFilter).toList();
+      }
 
-    return query.orderBy('timestamp', descending: true).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => Complaint.fromFirestore(doc)).toList();
+      return complaints;
     });
   }
 

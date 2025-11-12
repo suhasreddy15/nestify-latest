@@ -1,13 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/student_profile_service.dart';
 
 class OwnerStudentDetailsScreen extends StatelessWidget {
-  const OwnerStudentDetailsScreen({Key? key}) : super(key: key);
+  final String? studentId;
+  
+  const OwnerStudentDetailsScreen({Key? key, this.studentId}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // If studentId is provided, show single student details
+    if (studentId != null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Student Details'),
+          elevation: 0,
+        ),
+        body: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(studentId)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Text('Error: ${snapshot.error}'),
+              );
+            }
+
+            if (!snapshot.hasData || !snapshot.data!.exists) {
+              return const Center(
+                child: Text('Student not found'),
+              );
+            }
+
+            final studentData = snapshot.data!.data() as Map<String, dynamic>;
+            return _buildStudentDetailsView(context, studentData);
+          },
+        ),
+      );
+    }
+
+    // Otherwise, show all students list (original behavior)
     final StudentProfileService _profileService = StudentProfileService();
 
     return Scaffold(
@@ -55,6 +95,182 @@ class OwnerStudentDetailsScreen extends StatelessWidget {
             },
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildStudentDetailsView(BuildContext context, Map<String, dynamic> student) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Profile Picture and Name
+            Center(
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundColor: Colors.blue[100],
+                    child: Text(
+                      (student['fullName'] ?? student['name'] ?? 'S')[0].toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    student['fullName'] ?? student['name'] ?? 'Unknown',
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  if (student['email'] != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      student['email'],
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const Divider(height: 32),
+
+            // Contact Information
+            _buildDetailSection(
+              context,
+              'Contact Information',
+              [
+                _buildDetailRow(
+                  Icons.phone,
+                  'Phone',
+                  student['phone'] ?? 'Not provided',
+                ),
+                _buildDetailRow(
+                  Icons.email,
+                  'Email',
+                  student['email'] ?? 'Not provided',
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Room Information
+            _buildDetailSection(
+              context,
+              'Room Information',
+              [
+                _buildDetailRow(
+                  Icons.meeting_room,
+                  'Room Number',
+                  student['roomNumber'] ?? student['room'] ?? 'Not assigned',
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Aadhaar Document
+            Text(
+              'Documents',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            if (student['aadhaarUrl'] != null) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.description,
+                            color: Colors.green[700], size: 32),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Aadhaar Document',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                student['aadhaarFileName'] ?? 'aadhaar_document',
+                                style: const TextStyle(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (student['aadhaarUploadedAt'] != null)
+                                Text(
+                                  'Uploaded: ${_formatTimestamp(student['aadhaarUploadedAt'])}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _openDocument(student['aadhaarUrl']),
+                        icon: const Icon(Icons.open_in_new),
+                        label: const Text('View Document'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          padding: const EdgeInsets.all(12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber, color: Colors.orange[700], size: 32),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'No Aadhaar document uploaded yet',
+                        style: TextStyle(
+                          color: Colors.orange[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

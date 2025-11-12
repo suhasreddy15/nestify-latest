@@ -22,13 +22,22 @@ class Complaint {
   // Create a Complaint from Firestore document
   factory Complaint.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    
+    // Handle timestamp - use current time if null (serverTimestamp not set yet)
+    DateTime timestamp;
+    if (data['timestamp'] != null) {
+      timestamp = (data['timestamp'] as Timestamp).toDate();
+    } else {
+      timestamp = DateTime.now();
+    }
+    
     return Complaint(
       id: doc.id,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
       studentId: data['studentId'] ?? '',
       studentEmail: data['studentEmail'] ?? '',
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
+      timestamp: timestamp,
       status: data['status'] ?? 'pending',
     );
   }

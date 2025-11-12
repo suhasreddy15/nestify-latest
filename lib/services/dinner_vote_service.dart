@@ -26,12 +26,17 @@ class DinnerVoteService {
       'yesCount': 0,
       'noCount': 0,
       'isActive': true,
+      'reminderSent': false, // Track if 30-min reminder has been sent
+      'ownerId': _auth.currentUser?.uid,
     };
 
     await _firestore.collection('dinner_votes').add(voteData);
 
-    // Send push notifications to all students
+    // Send push notifications to all students immediately
     await _notificationService.sendDinnerVoteNotification(dishName);
+    
+    print('✅ Dinner voting created for: $dishName');
+    print('📢 Notifications sent to all students');
   }
 
   // Get today's dinner vote

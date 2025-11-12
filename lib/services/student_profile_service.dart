@@ -119,6 +119,83 @@ class StudentProfileService {
     }
   }
 
+  // Upload Profile Picture
+  Future<String> uploadProfilePicture({
+    required Uint8List fileBytes,
+    required String fileName,
+    required String fileExtension,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    // Delete old profile picture if it exists
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    final data = doc.data();
+    if (data != null && data['profilePicUrl'] != null) {
+      try {
+        final String oldUrl = data['profilePicUrl'];
+        final Reference oldRef = _storage.refFromURL(oldUrl);
+        await oldRef.delete();
+      } catch (e) {
+        print('Error deleting old profile picture: $e');
+      }
+    }
+
+    // Create a reference to the file location
+    final String storagePath = 'profile_pictures/${user.uid}/profile.$fileExtension';
+    final Reference ref = _storage.ref().child(storagePath);
+
+    // Set metadata
+    final metadata = SettableMetadata(
+      contentType: _getContentType(fileExtension),
+      customMetadata: {
+        'uploadedBy': user.uid,
+        'originalFileName': fileName,
+      },
+    );
+
+    // Upload the file
+    final UploadTask uploadTask = ref.putData(fileBytes, metadata);
+    final TaskSnapshot snapshot = await uploadTask;
+
+    // Get download URL
+    final String downloadUrl = await snapshot.ref.getDownloadURL();
+
+    // Update Firestore with the download URL
+    await _firestore.collection('users').doc(user.uid).update({
+      'profilePicUrl': downloadUrl,
+      'profilePicUpdatedAt': FieldValue.serverTimestamp(),
+    });
+
+    return downloadUrl;
+  }
+
+  // Delete Profile Picture
+  Future<void> deleteProfilePicture() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    final data = doc.data();
+
+    if (data != null && data['profilePicUrl'] != null) {
+      try {
+        // Delete from Storage
+        final String url = data['profilePicUrl'];
+        final Reference ref = _storage.refFromURL(url);
+        await ref.delete();
+      } catch (e) {
+        print('Error deleting profile picture from storage: $e');
+      }
+
+      // Remove from Firestore
+      await _firestore.collection('users').doc(user.uid).update({
+        'profilePicUrl': FieldValue.delete(),
+        'profilePicUpdatedAt': FieldValue.delete(),
+      });
+    }
+  }
+
   // Get all students (for owner)
   Stream<List<Map<String, dynamic>>> getAllStudents() {
     return _firestore

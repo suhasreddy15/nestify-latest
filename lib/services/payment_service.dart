@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -12,7 +13,46 @@ class PaymentService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // Generate PDF receipt
+  // Get owner PG details (with timeout)
+  Future<Map<String, String>> _getOwnerDetails() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        // Add timeout to prevent hanging
+        final ownerDoc = await _firestore
+            .collection('owners')
+            .doc(user.uid)
+            .get()
+            .timeout(
+              const Duration(seconds: 3),
+              onTimeout: () {
+                print('Owner details fetch timed out, using defaults');
+                throw TimeoutException('Owner fetch timeout');
+              },
+            );
+            
+        if (ownerDoc.exists) {
+          final data = ownerDoc.data() as Map<String, dynamic>;
+          return {
+            'pgName': data['pgName'] ?? 'NESTIFY PG',
+            'address': data['address'] ?? '',
+            'contactNumber': data['contactNumber'] ?? '',
+          };
+        }
+      }
+    } catch (e) {
+      print('Error fetching owner details: $e');
+    }
+    
+    // Return defaults if any error
+    return {
+      'pgName': 'NESTIFY PG',
+      'address': '',
+      'contactNumber': '',
+    };
+  }
+
+  // Generate PDF receipt (simplified and fast)
   Future<Uint8List> generateReceipt({
     required String studentName,
     required String studentEmail,
@@ -21,6 +61,13 @@ class PaymentService {
     required DateTime paymentDate,
     required String receiptId,
   }) async {
+    print('PaymentService: Generating receipt...');
+    
+    // Use simple defaults - no database calls for speed
+    final pgName = 'NESTIFY PG';
+    final pgAddress = 'PG Accommodation';
+    final pgContact = 'Contact: Owner';
+
     final pdf = pw.Document();
 
     pdf.addPage(
@@ -43,7 +90,7 @@ class PaymentService {
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
-                        'NESTIFY PG',
+                        pgName,
                         style: pw.TextStyle(
                           fontSize: 32,
                           fontWeight: pw.FontWeight.bold,
@@ -227,6 +274,7 @@ class PaymentService {
     required String receiptId,
   }) async {
     try {
+      print('PaymentService: Starting upload - PDF size: ${pdfBytes.length} bytes');
       final String storagePath = 'receipts/$studentId/$receiptId.pdf';
       final Reference ref = _storage.ref().child(storagePath);
 
@@ -238,12 +286,15 @@ class PaymentService {
         },
       );
 
+      print('PaymentService: Uploading to path: $storagePath');
       final UploadTask uploadTask = ref.putData(pdfBytes, metadata);
       final TaskSnapshot snapshot = await uploadTask;
       final String downloadUrl = await snapshot.ref.getDownloadURL();
-
+      
+      print('PaymentService: Upload successful!');
       return downloadUrl;
     } catch (e) {
+      print('PaymentService: Upload FAILED - $e');
       throw Exception('Failed to upload receipt: $e');
     }
   }
@@ -256,15 +307,22 @@ class PaymentService {
     required String roomNumber,
     required double amount,
     required DateTime paymentDate,
+    String? paymentMethod,
   }) async {
     try {
+      print('PaymentService: Starting payment creation...');
+      final startTime = DateTime.now();
+      
       final user = _auth.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
       // Generate unique receipt ID
       final receiptId = 'RCP-${DateTime.now().millisecondsSinceEpoch}';
+      print('PaymentService: Receipt ID generated: $receiptId');
 
       // Generate PDF receipt
+      print('PaymentService: Generating PDF receipt...');
+      final pdfStartTime = DateTime.now();
       final pdfBytes = await generateReceipt(
         studentName: studentName,
         studentEmail: studentEmail,
@@ -273,15 +331,22 @@ class PaymentService {
         paymentDate: paymentDate,
         receiptId: receiptId,
       );
+      final pdfDuration = DateTime.now().difference(pdfStartTime);
+      print('PaymentService: PDF generated in ${pdfDuration.inMilliseconds}ms');
 
-      // Upload receipt to storage
+      // Upload receipt to Firebase Storage
+      print('PaymentService: Uploading PDF to Firebase Storage...');
+      final uploadStartTime = DateTime.now();
       final receiptUrl = await uploadReceipt(
         pdfBytes: pdfBytes,
         studentId: studentId,
         receiptId: receiptId,
       );
+      final uploadDuration = DateTime.now().difference(uploadStartTime);
+      print('PaymentService: Upload completed in ${uploadDuration.inMilliseconds}ms');
 
       // Create payment record in Firestore
+      print('PaymentService: Saving to Firestore...');
       final payment = Payment(
         id: receiptId,
         studentId: studentId,
@@ -293,10 +358,18 @@ class PaymentService {
         createdBy: user.uid,
         createdAt: DateTime.now(),
         roomNumber: roomNumber,
+        status: 'paid',
+        paymentMethod: paymentMethod,
       );
 
       await _firestore.collection('payments').doc(receiptId).set(payment.toMap());
+      
+      final totalDuration = DateTime.now().difference(startTime);
+      print('PaymentService: ✅ Payment created successfully! Total time: ${totalDuration.inMilliseconds}ms');
+      print('PaymentService: Receipt URL: $receiptUrl');
     } catch (e) {
+      print('PaymentService: ❌ ERROR - $e');
+      print('PaymentService: Stack trace: ${StackTrace.current}');
       throw Exception('Failed to create payment: $e');
     }
   }
@@ -320,19 +393,60 @@ class PaymentService {
         .map((snapshot) => snapshot.docs.map((doc) => Payment.fromFirestore(doc)).toList());
   }
 
+  // Get payments for a specific month
+  Stream<QuerySnapshot> getMonthlyPayments(DateTime month) {
+    // Get start of month
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    
+    // Get start of next month
+    final endOfMonth = DateTime(month.year, month.month + 1, 1);
+    
+    return _firestore
+        .collection('payments')
+        .where('paymentDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
+        .where('paymentDate', isLessThan: Timestamp.fromDate(endOfMonth))
+        .snapshots();
+  }
+
   // Get all students (for payment creation)
   Future<List<Map<String, dynamic>>> getAllStudents() async {
-    final snapshot = await _firestore
-        .collection('users')
-        .where('role', isEqualTo: 'student')
-        .orderBy('fullName')
-        .get();
+    try {
+      print('PaymentService: Fetching all students...');
+      
+      // Fetch all students without orderBy to avoid composite index requirement
+      final snapshot = await _firestore
+          .collection('users')
+          .where('role', isEqualTo: 'student')
+          .get();
 
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['uid'] = doc.id;
-      return data;
-    }).toList();
+      print('PaymentService: Found ${snapshot.docs.length} students');
+
+      // Convert to list with null handling
+      final students = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['uid'] = doc.id;
+        
+        // Add null handling for optional fields
+        data['fullName'] = data['fullName'] ?? data['name'] ?? data['email'] ?? 'Unknown';
+        data['roomNumber'] = data['roomNumber']?.toString() ?? data['room']?.toString() ?? 'N/A';
+        data['email'] = data['email'] ?? 'No email';
+        
+        return data;
+      }).toList();
+
+      // Sort by name in memory (no Firestore index needed)
+      students.sort((a, b) {
+        final aName = (a['fullName'] as String? ?? '').toLowerCase();
+        final bName = (b['fullName'] as String? ?? '').toLowerCase();
+        return aName.compareTo(bName);
+      });
+
+      print('PaymentService: Students sorted by name');
+      return students;
+    } catch (e) {
+      print('PaymentService: Error fetching students: $e');
+      rethrow;
+    }
   }
 
   // Delete payment

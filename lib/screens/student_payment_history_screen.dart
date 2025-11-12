@@ -299,6 +299,9 @@ class StudentPaymentHistoryScreen extends StatelessWidget {
               'Payment Date',
               DateFormat('MMM dd, yyyy').format(payment.paymentDate),
             ),
+            if (payment.paymentMethod != null)
+              _buildDetailRow('Payment Method', payment.paymentMethod!),
+            _buildDetailRow('Status', payment.status.toUpperCase()),
             _buildDetailRow(
               'Issued On',
               DateFormat('MMM dd, yyyy hh:mm a').format(payment.createdAt),
