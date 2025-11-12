@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1033882305087",
+    "project_id": "nestifymega",
+    "storage_bucket": "nestifymega.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1033882305087:android:84a980ab046d58e6ceae8a",
+        "android_client_info": {
+          "package_name": "com.example.nestify"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAP1z1YwjefTyBPMwhL-hoWD85b_01R8Rk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
