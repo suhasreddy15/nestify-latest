@@ -6,6 +6,8 @@ import 'package:nestify/screens/owner_student_details_screen.dart';
 class OwnerStudentsListScreen extends StatelessWidget {
   const OwnerStudentsListScreen({super.key});
 
+
+
   static const routeName = '/owner/students';
 
   @override
