@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloudinary_public/cloudinary_public.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
@@ -11,46 +11,11 @@ import '../models/payment.dart';
 class PaymentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
-
-  // Get owner PG details (with timeout)
-  Future<Map<String, String>> _getOwnerDetails() async {
-    try {
-      final user = _auth.currentUser;
-      if (user != null) {
-        // Add timeout to prevent hanging
-        final ownerDoc = await _firestore
-            .collection('owners')
-            .doc(user.uid)
-            .get()
-            .timeout(
-              const Duration(seconds: 3),
-              onTimeout: () {
-                print('Owner details fetch timed out, using defaults');
-                throw TimeoutException('Owner fetch timeout');
-              },
-            );
-            
-        if (ownerDoc.exists) {
-          final data = ownerDoc.data() as Map<String, dynamic>;
-          return {
-            'pgName': data['pgName'] ?? 'NESTIFY PG',
-            'address': data['address'] ?? '',
-            'contactNumber': data['contactNumber'] ?? '',
-          };
-        }
-      }
-    } catch (e) {
-      print('Error fetching owner details: $e');
-    }
-    
-    // Return defaults if any error
-    return {
-      'pgName': 'NESTIFY PG',
-      'address': '',
-      'contactNumber': '',
-    };
-  }
+  
+  // Cloudinary configuration
+  static const String _cloudName = 'difixpzlr';
+  static const String _uploadPreset = 'nestify_receipts';
+  final CloudinaryPublic _cloudinary = CloudinaryPublic(_cloudName, _uploadPreset);
 
   // Generate PDF receipt (simplified and fast)
   Future<Uint8List> generateReceipt({
@@ -64,9 +29,9 @@ class PaymentService {
     print('PaymentService: Generating receipt...');
     
     // Use simple defaults - no database calls for speed
-    final pgName = 'NESTIFY PG';
-    final pgAddress = 'PG Accommodation';
-    final pgContact = 'Contact: Owner';
+    const pgName = 'NESTIFY PG';
+    // Note: pgAddress and pgContact can be fetched from owner details if needed
+    // Currently using minimal information for faster PDF generation
 
     final pdf = pw.Document();
 
@@ -267,35 +232,31 @@ class PaymentService {
     );
   }
 
-  // Upload receipt to Firebase Storage
+  // Upload receipt to Cloudinary
   Future<String> uploadReceipt({
     required Uint8List pdfBytes,
     required String studentId,
     required String receiptId,
   }) async {
     try {
-      print('PaymentService: Starting upload - PDF size: ${pdfBytes.length} bytes');
-      final String storagePath = 'receipts/$studentId/$receiptId.pdf';
-      final Reference ref = _storage.ref().child(storagePath);
-
-      final metadata = SettableMetadata(
-        contentType: 'application/pdf',
-        customMetadata: {
-          'studentId': studentId,
-          'receiptId': receiptId,
-        },
-      );
-
-      print('PaymentService: Uploading to path: $storagePath');
-      final UploadTask uploadTask = ref.putData(pdfBytes, metadata);
-      final TaskSnapshot snapshot = await uploadTask;
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
+      print('PaymentService: Starting Cloudinary upload - PDF size: ${pdfBytes.length} bytes');
       
-      print('PaymentService: Upload successful!');
-      return downloadUrl;
+      // Upload PDF to Cloudinary using Auto resource type
+      final response = await _cloudinary.uploadFile(
+        CloudinaryFile.fromBytesData(
+          pdfBytes,
+          identifier: '$receiptId.pdf',
+          folder: 'nestify/receipts/$studentId',
+          resourceType: CloudinaryResourceType.Auto, // Try Auto instead of Raw
+        ),
+      );
+      
+      print('PaymentService: ✅ Cloudinary upload successful!');
+      print('PaymentService: URL: ${response.secureUrl}');
+      return response.secureUrl;
     } catch (e) {
-      print('PaymentService: Upload FAILED - $e');
-      throw Exception('Failed to upload receipt: $e');
+      print('PaymentService: ❌ Cloudinary upload FAILED - $e');
+      throw Exception('Failed to upload receipt to Cloudinary: $e');
     }
   }
 
@@ -334,8 +295,8 @@ class PaymentService {
       final pdfDuration = DateTime.now().difference(pdfStartTime);
       print('PaymentService: PDF generated in ${pdfDuration.inMilliseconds}ms');
 
-      // Upload receipt to Firebase Storage
-      print('PaymentService: Uploading PDF to Firebase Storage...');
+      // Upload receipt to Cloudinary
+      print('PaymentService: Uploading PDF to Cloudinary...');
       final uploadStartTime = DateTime.now();
       final receiptUrl = await uploadReceipt(
         pdfBytes: pdfBytes,
@@ -455,15 +416,77 @@ class PaymentService {
       // Delete from Firestore
       await _firestore.collection('payments').doc(paymentId).delete();
 
-      // Delete receipt from Storage
-      try {
-        final ref = _storage.refFromURL(receiptUrl);
-        await ref.delete();
-      } catch (e) {
-        print('Error deleting receipt from storage: $e');
-      }
+      // Note: Cloudinary file deletion requires server-side Admin API
+      // The receipt URL will become orphaned in Cloudinary
+      // For production, implement a Cloud Function to delete Cloudinary files
+      print('PaymentService: Payment deleted. Cloudinary file cleanup requires server-side implementation.');
     } catch (e) {
       throw Exception('Failed to delete payment: $e');
     }
   }
+
+  // Regenerate and resend receipt to student
+  Future<String> regenerateReceipt(String paymentId) async {
+    try {
+      print('PaymentService: Regenerating receipt for payment: $paymentId');
+      
+      // Get existing payment
+      final paymentDoc = await _firestore.collection('payments').doc(paymentId).get();
+      if (!paymentDoc.exists) {
+        throw Exception('Payment not found');
+      }
+      
+      final data = paymentDoc.data() as Map<String, dynamic>;
+      
+      // Generate new receipt ID
+      final newReceiptId = 'RCP-${DateTime.now().millisecondsSinceEpoch}';
+      print('PaymentService: New receipt ID: $newReceiptId');
+      
+      // Generate PDF
+      final pdfBytes = await generateReceipt(
+        studentName: data['studentName'] ?? 'Unknown',
+        studentEmail: data['studentEmail'] ?? 'No email',
+        roomNumber: data['roomNumber']?.toString() ?? 'N/A',
+        amount: (data['amount'] ?? 0).toDouble(),
+        paymentDate: (data['paymentDate'] as Timestamp).toDate(),
+        receiptId: newReceiptId,
+      );
+      
+      // Upload to storage
+      final receiptUrl = await uploadReceipt(
+        pdfBytes: pdfBytes,
+        studentId: data['studentId'],
+        receiptId: newReceiptId,
+      );
+      
+      // Update payment record with new receipt URL
+      await _firestore.collection('payments').doc(paymentId).update({
+        'receiptUrl': receiptUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      
+      print('PaymentService: Receipt regenerated successfully!');
+      return receiptUrl;
+    } catch (e) {
+      print('PaymentService: Failed to regenerate receipt - $e');
+      throw Exception('Failed to regenerate receipt: $e');
+    }
+  }
+
+  // Get student's payment receipts
+  Future<List<Payment>> getStudentReceipts(String studentId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('payments')
+          .where('studentId', isEqualTo: studentId)
+          .orderBy('paymentDate', descending: true)
+          .get();
+      
+      return snapshot.docs.map((doc) => Payment.fromFirestore(doc)).toList();
+    } catch (e) {
+      print('PaymentService: Error fetching student receipts: $e');
+      throw Exception('Failed to fetch receipts: $e');
+    }
+  }
 }
+

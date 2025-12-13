@@ -1,7 +1,6 @@
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:nestify/services/auth_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class OwnerLoginScreen extends StatefulWidget {
   static const String routeName = '/owner-login';
@@ -13,7 +12,7 @@ class OwnerLoginScreen extends StatefulWidget {
 }
 
 class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
-  final AuthService _authService = AuthService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -30,64 +29,78 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
+     setState(() {
       _isLoading = true;
     });
 
-    // Hardcoded credentials check
-    final isOwner = _emailController.text == 'owner@nestify.com' &&
-        _passwordController.text == 'password123';
-
-    if (!isOwner) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid owner credentials.')),
-        );
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      return;
-    }
-
     try {
-      UserCredential userCredential;
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
 
+      UserCredential? userCredential;
+      bool accountCreated = false;
+
+      // Try to sign in first
       try {
-        // Try to sign in with existing account
-        userCredential = await _authService.signInWithEmail(
-          _emailController.text.trim(),
-          _passwordController.text,
+        userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: password,
         );
-      } catch (e) {
-        // If account doesn't exist, create it
-        if (e.toString().contains('user-not-found') ||
-            e.toString().contains('invalid-credential')) {
-          userCredential = await _authService.registerOwner(
-            _emailController.text.trim(),
-            _passwordController.text,
+      } on FirebaseAuthException catch (e) {
+        // If account doesn't exist, create new owner account
+        if (e.code == 'user-not-found' || 
+            e.code == 'invalid-credential' ||
+            e.code == 'INVALID_LOGIN_CREDENTIALS') {
+          
+          userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: email,
+            password: password,
           );
+          accountCreated = true;
+        } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+          throw Exception('Incorrect password. Please try again.');
         } else {
-          rethrow;
+          throw Exception(e.message ?? 'Authentication failed');
         }
       }
 
-      // Ensure owner role is set in Firestore
-      if (userCredential.user != null) {
-        await _authService.ensureOwnerRole(userCredential.user!);
+      if (userCredential.user == null) {
+        throw Exception('Login failed - no user returned');
       }
 
-      // After successful login, navigate back to root
-      // The AuthWrapper will detect the auth state change and show the owner dashboard
+      final userId = userCredential.user!.uid;
+
+      // Set or ensure owner role in Firestore
+      await _firestore.collection('users').doc(userId).set({
+        'role': 'owner',
+        'email': email,
+        'fullName': 'Owner',
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
       if (mounted) {
+        if (accountCreated) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Owner account created successfully!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+
+        // Navigate to root - AuthWrapper will redirect to dashboard
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
       if (mounted) {
+        String errorMessage = e.toString().replaceAll('Exception: ', '');
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Login failed: ${e.toString()}'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }

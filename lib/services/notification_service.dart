@@ -486,4 +486,61 @@ class NotificationService {
 
     print('Washing reminder notification sent to student: $studentId for time: $timeSlot');
   }
+
+  // Send notification to other students when someone books a laundry slot
+  Future<void> sendLaundryBookingNotification({
+    required String bookerName,
+    required String date,
+    required String time,
+    required String excludeUserId,
+  }) async {
+    try {
+      // Get all students except the one who booked
+      final studentsSnapshot = await _firestore
+          .collection('users')
+          .where('role', isEqualTo: 'student')
+          .get();
+
+      if (studentsSnapshot.docs.isEmpty) {
+        print('No students found to send laundry booking notifications');
+        return;
+      }
+
+      final notificationData = {
+        'title': '🧺 Laundry Slot Booked',
+        'body': '$bookerName booked the washing machine for $date at $time. Book your slot now!',
+        'timestamp': FieldValue.serverTimestamp(),
+        'type': 'laundry_booking',
+        'bookerName': bookerName,
+        'date': date,
+        'time': time,
+        'read': false,
+      };
+
+      int successCount = 0;
+      for (var student in studentsSnapshot.docs) {
+        // Skip the student who made the booking
+        if (student.id == excludeUserId) continue;
+
+        try {
+          // Add to user's notifications subcollection
+          await _firestore
+              .collection('users')
+              .doc(student.id)
+              .collection('notifications')
+              .add(notificationData);
+
+          successCount++;
+        } catch (e) {
+          print('Error sending laundry notification to ${student.id}: $e');
+        }
+      }
+
+      print('✅ Laundry booking notifications sent to $successCount students');
+      print('📌 Booked by: $bookerName for $date at $time');
+    } catch (e) {
+      print('❌ Error sending laundry booking notifications: $e');
+      rethrow;
+    }
+  }
 }

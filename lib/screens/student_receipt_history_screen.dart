@@ -141,7 +141,8 @@ class StudentReceiptHistoryScreen extends StatelessWidget {
     final paymentDate = (data['paymentDate'] as Timestamp?)?.toDate() ?? DateTime.now();
     final paymentMethod = data['paymentMethod'] ?? 'Cash';
     final roomNumber = data['roomNumber']?.toString() ?? 'N/A';
-    final receiptUrl = data['receiptUrl'] as String?;
+    // receiptUrl is used in _showReceiptDetails
+    // final receiptUrl = data['receiptUrl'] as String?;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),

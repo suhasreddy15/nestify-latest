@@ -1,12 +1,12 @@
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'cloudinary_service.dart';
 
 class StudentProfileService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final CloudinaryService _cloudinaryService = CloudinaryService();
 
   // Get current student profile
   Future<Map<String, dynamic>?> getStudentProfile() async {
@@ -37,7 +37,7 @@ class StudentProfileService {
     });
   }
 
-  // Upload Aadhaar file to Firebase Storage
+  // Upload Aadhaar file to Cloudinary/Firebase Storage
   Future<String> uploadAadhaarFile({
     required Uint8List fileBytes,
     required String fileName,
@@ -46,49 +46,22 @@ class StudentProfileService {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not authenticated');
 
-    // Create a reference to the file location
-    final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    final String storagePath = 'aadhaar_documents/${user.uid}/$timestamp.$fileExtension';
-    final Reference ref = _storage.ref().child(storagePath);
+    print('🚀 Starting Aadhaar upload...');
+    print('📝 File: $fileName');
+    print('📊 Size: ${fileBytes.length} bytes (${(fileBytes.length / 1024 / 1024).toStringAsFixed(2)} MB)');
 
-    // Set metadata
-    final metadata = SettableMetadata(
-      contentType: _getContentType(fileExtension),
-      customMetadata: {
-        'uploadedBy': user.uid,
-        'originalFileName': fileName,
-      },
-    );
+    try {
+      // Use Cloudinary service for upload (with Firebase fallback)
+      final downloadUrl = await _cloudinaryService.uploadAadhaarDocument(
+        fileBytes: fileBytes,
+        fileName: fileName,
+      );
 
-    // Upload the file
-    final UploadTask uploadTask = ref.putData(fileBytes, metadata);
-    final TaskSnapshot snapshot = await uploadTask;
-
-    // Get download URL
-    final String downloadUrl = await snapshot.ref.getDownloadURL();
-
-    // Update Firestore with the download URL
-    await _firestore.collection('users').doc(user.uid).update({
-      'aadhaarUrl': downloadUrl,
-      'aadhaarFileName': fileName,
-      'aadhaarUploadedAt': FieldValue.serverTimestamp(),
-    });
-
-    return downloadUrl;
-  }
-
-  // Get content type based on file extension
-  String _getContentType(String extension) {
-    switch (extension.toLowerCase()) {
-      case 'pdf':
-        return 'application/pdf';
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      default:
-        return 'application/octet-stream';
+      print('✅ Aadhaar upload completed successfully!');
+      return downloadUrl;
+    } catch (e) {
+      print('❌ Aadhaar upload failed: $e');
+      throw Exception('Failed to upload Aadhaar document: $e');
     }
   }
 
@@ -97,25 +70,12 @@ class StudentProfileService {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not authenticated');
 
-    final doc = await _firestore.collection('users').doc(user.uid).get();
-    final data = doc.data();
-
-    if (data != null && data['aadhaarUrl'] != null) {
-      try {
-        // Delete from Storage
-        final String url = data['aadhaarUrl'];
-        final Reference ref = _storage.refFromURL(url);
-        await ref.delete();
-      } catch (e) {
-        print('Error deleting file from storage: $e');
-      }
-
-      // Remove from Firestore
-      await _firestore.collection('users').doc(user.uid).update({
-        'aadhaarUrl': FieldValue.delete(),
-        'aadhaarFileName': FieldValue.delete(),
-        'aadhaarUploadedAt': FieldValue.delete(),
-      });
+    try {
+      await _cloudinaryService.deleteAadhaarDocument();
+      print('✅ Aadhaar document deleted successfully');
+    } catch (e) {
+      print('❌ Error deleting Aadhaar document: $e');
+      throw Exception('Failed to delete Aadhaar document: $e');
     }
   }
 
@@ -128,46 +88,23 @@ class StudentProfileService {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not authenticated');
 
-    // Delete old profile picture if it exists
-    final doc = await _firestore.collection('users').doc(user.uid).get();
-    final data = doc.data();
-    if (data != null && data['profilePicUrl'] != null) {
-      try {
-        final String oldUrl = data['profilePicUrl'];
-        final Reference oldRef = _storage.refFromURL(oldUrl);
-        await oldRef.delete();
-      } catch (e) {
-        print('Error deleting old profile picture: $e');
-      }
+    print('🚀 Starting profile picture upload...');
+    print('📝 File: $fileName');
+    print('📊 Size: ${fileBytes.length} bytes (${(fileBytes.length / 1024 / 1024).toStringAsFixed(2)} MB)');
+
+    try {
+      // Use Cloudinary service for upload (with Firebase fallback)
+      final downloadUrl = await _cloudinaryService.uploadProfilePicture(
+        fileBytes: fileBytes,
+        fileName: fileName,
+      );
+
+      print('✅ Profile picture upload completed successfully!');
+      return downloadUrl;
+    } catch (e) {
+      print('❌ Profile picture upload failed: $e');
+      throw Exception('Failed to upload profile picture: $e');
     }
-
-    // Create a reference to the file location
-    final String storagePath = 'profile_pictures/${user.uid}/profile.$fileExtension';
-    final Reference ref = _storage.ref().child(storagePath);
-
-    // Set metadata
-    final metadata = SettableMetadata(
-      contentType: _getContentType(fileExtension),
-      customMetadata: {
-        'uploadedBy': user.uid,
-        'originalFileName': fileName,
-      },
-    );
-
-    // Upload the file
-    final UploadTask uploadTask = ref.putData(fileBytes, metadata);
-    final TaskSnapshot snapshot = await uploadTask;
-
-    // Get download URL
-    final String downloadUrl = await snapshot.ref.getDownloadURL();
-
-    // Update Firestore with the download URL
-    await _firestore.collection('users').doc(user.uid).update({
-      'profilePicUrl': downloadUrl,
-      'profilePicUpdatedAt': FieldValue.serverTimestamp(),
-    });
-
-    return downloadUrl;
   }
 
   // Delete Profile Picture
@@ -175,24 +112,12 @@ class StudentProfileService {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not authenticated');
 
-    final doc = await _firestore.collection('users').doc(user.uid).get();
-    final data = doc.data();
-
-    if (data != null && data['profilePicUrl'] != null) {
-      try {
-        // Delete from Storage
-        final String url = data['profilePicUrl'];
-        final Reference ref = _storage.refFromURL(url);
-        await ref.delete();
-      } catch (e) {
-        print('Error deleting profile picture from storage: $e');
-      }
-
-      // Remove from Firestore
-      await _firestore.collection('users').doc(user.uid).update({
-        'profilePicUrl': FieldValue.delete(),
-        'profilePicUpdatedAt': FieldValue.delete(),
-      });
+    try {
+      await _cloudinaryService.deleteProfilePicture();
+      print('✅ Profile picture deleted successfully');
+    } catch (e) {
+      print('❌ Error deleting profile picture: $e');
+      throw Exception('Failed to delete profile picture: $e');
     }
   }
 

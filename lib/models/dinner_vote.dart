@@ -5,6 +5,7 @@ class DinnerVote {
   final String dishName;
   final DateTime date;
   final DateTime createdAt;
+  final DateTime? votingDeadline;
   final int yesCount;
   final int noCount;
   final bool isActive;
@@ -14,6 +15,7 @@ class DinnerVote {
     required this.dishName,
     required this.date,
     required this.createdAt,
+    this.votingDeadline,
     required this.yesCount,
     required this.noCount,
     required this.isActive,
@@ -26,10 +28,27 @@ class DinnerVote {
       dishName: data['dishName'] ?? '',
       date: (data['date'] as Timestamp).toDate(),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+      votingDeadline: data['votingDeadline'] != null 
+          ? (data['votingDeadline'] as Timestamp).toDate() 
+          : null,
       yesCount: data['yesCount'] ?? 0,
       noCount: data['noCount'] ?? 0,
       isActive: data['isActive'] ?? true,
     );
+  }
+  
+  // Check if voting is still open
+  bool get isVotingOpen {
+    if (!isActive) return false;
+    
+    if (votingDeadline != null) {
+      return DateTime.now().isBefore(votingDeadline!);
+    }
+    
+    // Fallback: 6 PM deadline
+    final now = DateTime.now();
+    final deadline = DateTime(now.year, now.month, now.day, 18, 0);
+    return now.isBefore(deadline);
   }
 
   Map<String, dynamic> toMap() {
@@ -37,6 +56,7 @@ class DinnerVote {
       'dishName': dishName,
       'date': Timestamp.fromDate(date),
       'createdAt': Timestamp.fromDate(createdAt),
+      'votingDeadline': votingDeadline != null ? Timestamp.fromDate(votingDeadline!) : null,
       'yesCount': yesCount,
       'noCount': noCount,
       'isActive': isActive,

@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Receipts folder - PDFs for payment receipts
+    match /receipts/{studentId}/{receiptId} {
+      // Allow authenticated users to read their own receipts
+      // Allow owners to read/write all receipts
+      allow read: if request.auth != null && 
+                     (request.auth.uid == studentId || isOwner());
+      allow write: if request.auth != null && isOwner();
+    }
+    
+    // Student documents folder (Aadhaar, etc)
+    match /student_documents/{studentId}/{document} {
+      // Students can upload their own documents
+      // Owners can read all student documents
+      allow read: if request.auth != null && 
+                     (request.auth.uid == studentId || isOwner());
+      allow write: if request.auth != null && request.auth.uid == studentId;
+    }
+    
+    // Helper function to check if user is owner
+    function isOwner() {
+      return request.auth != null && 
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'owner';
+    }
+  }
+}

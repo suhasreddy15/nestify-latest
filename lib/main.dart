@@ -1,3 +1,4 @@
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -25,7 +26,6 @@ import 'package:nestify/screens/owner_students_list_screen.dart';
 import 'package:nestify/screens/owner_payment_management_screen.dart';
 import 'package:nestify/screens/student_payment_history_screen.dart';
 import 'package:nestify/screens/owner_setup_screen.dart';
-import 'package:nestify/services/owner_service.dart';
 import 'package:nestify/services/washing_booking_service.dart';
 import 'package:nestify/services/notification_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -38,6 +38,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+
   
   // Register background message handler for FCM
   // MUST be registered before runApp()
@@ -118,6 +120,7 @@ class MyApp extends StatelessWidget {
     
     return MaterialApp(
       title: 'Nestify',
+      debugShowCheckedModeBanner: false, // Removes debug banner
       themeMode: themeService.themeMode,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
@@ -170,19 +173,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// AuthWrapper provides persistent login functionality
-/// 
-/// How it works:
-/// 1. Uses StreamBuilder with Firebase Auth's authStateChanges() stream
-/// 2. Firebase Auth automatically persists user sessions locally
-/// 3. When app starts, if user previously logged in, stream emits User object
-/// 4. If user is logged out, stream emits null
-/// 5. This allows automatic re-authentication without re-entering credentials
-/// 
-/// Flow:
-/// - App Launch → Check Firebase Auth → User found? → Go to Dashboard
-/// - App Launch → Check Firebase Auth → No user? → Show Welcome/Login
-/// - User Logout → Firebase Auth cleared → Stream emits null → Show Welcome
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -191,30 +181,16 @@ class AuthWrapper extends StatelessWidget {
     final AuthService authService = AuthService();
 
     return StreamBuilder<User?>(
-      stream: authService.user, // This stream enables persistent login!
+      stream: authService.user,
       builder: (context, userSnapshot) {
-        // Show loading while checking authentication state
         if (userSnapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Checking authentication...'),
-                ],
-              ),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // User is authenticated (persistent login active!)
         if (userSnapshot.hasData) {
-          // Start background notification checker for authenticated user
           startNotificationChecker();
-          
-          // Initialize FCM notifications for logged-in user
           _initializeNotificationsForUser();
           
           return FutureBuilder<UserRole?>(
@@ -229,44 +205,70 @@ class AuthWrapper extends StatelessWidget {
               if (roleSnapshot.hasData) {
                 final role = roleSnapshot.data;
                 if (role == UserRole.owner) {
-                  // Check if owner has completed setup
-                  return FutureBuilder<bool>(
-                    future: OwnerService().isOwnerSetupComplete(),
-                    builder: (context, setupSnapshot) {
-                      if (setupSnapshot.connectionState == ConnectionState.waiting) {
-                        return const Scaffold(
-                          body: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-                      
-                      if (setupSnapshot.hasData && setupSnapshot.data == true) {
-                        return const OwnerDashboardScreen();
-                      } else {
-                        return const OwnerSetupScreen();
-                      }
-                    },
-                  );
+                  return const OwnerDashboardScreen();
                 } else {
                   return const StudentDashboardScreen();
                 }
               } else {
-                // If no role found, default to student dashboard
-                // This handles cases where user document doesn't exist yet
-                return const StudentDashboardScreen();
+                // If no role is found, something is wrong with the user's data.
+                // It's safer to log them out and show an error.
+                return const RoleErrorScreen();
               }
             },
           );
         }
 
-        // No user authenticated - show welcome/login screen
-        // User will see this when:
-        // 1. First time opening app (never logged in)
-        // 2. After clicking logout
-        // 3. Session expired (rare with Firebase Auth)
+        // No user authenticated - show welcome screen
         stopNotificationChecker();
-        _cleanupNotifications(); // Cleanup FCM token and listeners
+        _cleanupNotifications();
         return const WelcomeScreen();
       },
+    );
+  }
+}
+
+/// A screen to show when a user's role cannot be determined.
+/// This is a failsafe to prevent users from getting stuck.
+class RoleErrorScreen extends StatelessWidget {
+  const RoleErrorScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 64),
+              const SizedBox(height: 16),
+              const Text(
+                'Error Loading Profile',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'We couldn\'t determine your user role. This might be a temporary issue. Please try signing out and signing back in.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.logout),
+                label: const Text('Sign Out'),
+                onPressed: () async {
+                  await AuthService().signOut();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -113,7 +113,7 @@ class _DinnerVotingScreenState extends State<DinnerVotingScreen> {
   }
 
   Widget _buildVotingCard(DinnerVote vote) {
-    final isVotingOpen = _voteService.isVotingOpen();
+    final isVotingOpen = vote.isVotingOpen; // Use the model's property
 
     return FutureBuilder<VoteResponse?>(
       future: _voteService.hasUserVoted(vote.id),
@@ -152,7 +152,15 @@ class _DinnerVotingScreenState extends State<DinnerVotingScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
-                          if (isVotingOpen)
+                          if (isVotingOpen && vote.votingDeadline != null)
+                            Text(
+                              'Vote before ${_formatTime(vote.votingDeadline!)}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: Colors.grey[600]),
+                            ),
+                          if (isVotingOpen && vote.votingDeadline == null)
                             Text(
                               'Vote before 6:00 PM',
                               style: Theme.of(context)
@@ -164,7 +172,7 @@ class _DinnerVotingScreenState extends State<DinnerVotingScreen> {
                       ),
                     ),
                     if (isVotingOpen)
-                      _buildCountdownTimer(),
+                      _buildCountdownTimer(vote),
                   ],
                 ),
                 const Divider(height: 24),
@@ -329,9 +337,16 @@ class _DinnerVotingScreenState extends State<DinnerVotingScreen> {
     );
   }
 
-  Widget _buildCountdownTimer() {
+  String _formatTime(DateTime time) {
+    final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
+  }
+
+  Widget _buildCountdownTimer(DinnerVote vote) {
     final now = DateTime.now();
-    final deadline = DateTime(now.year, now.month, now.day, 18, 0);
+    final deadline = vote.votingDeadline ?? DateTime(now.year, now.month, now.day, 18, 0);
     final difference = deadline.difference(now);
 
     if (difference.isNegative) {

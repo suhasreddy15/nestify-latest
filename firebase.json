@@ -1,1 +1,32 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"nestifymega","appId":"1:1033882305087:android:84a980ab046d58e6ceae8a","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"nestifymega","configurations":{"android":"1:1033882305087:android:84a980ab046d58e6ceae8a","ios":"1:1033882305087:ios:5351c747ff562df4ceae8a","macos":"1:1033882305087:ios:5351c747ff562df4ceae8a","web":"1:1033882305087:web:d0f4a104e719e565ceae8a","windows":"1:1033882305087:web:501d44519511a20fceae8a"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "nestifymega",
+          "appId": "1:1033882305087:android:84a980ab046d58e6ceae8a",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "nestifymega",
+          "configurations": {
+            "android": "1:1033882305087:android:84a980ab046d58e6ceae8a",
+            "ios": "1:1033882305087:ios:5351c747ff562df4ceae8a",
+            "macos": "1:1033882305087:ios:5351c747ff562df4ceae8a",
+            "web": "1:1033882305087:web:d0f4a104e719e565ceae8a",
+            "windows": "1:1033882305087:web:501d44519511a20fceae8a"
+          }
+        }
+      }
+    }
+  }
+}

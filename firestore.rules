@@ -7,9 +7,16 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Helper function to get user role
+    // Helper function to check if user document exists
+    function userExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    
+    // Helper function to get user role (with safety check)
     function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return userExists() 
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role 
+        : null;
     }
     
     // Helper function to check if user is owner
@@ -24,9 +31,14 @@ service cloud.firestore {
     
     // Users collection
     match /users/{userId} {
+      // Allow read for authenticated users (needed for getUserRole() function)
       allow read: if isAuthenticated();
+      
+      // Allow users to create and update their own document
       allow write: if isAuthenticated() && request.auth.uid == userId;
-      allow create: if isAuthenticated();
+      
+      // Allow user creation during registration (even if document doesn't exist yet)
+      allow create: if request.auth != null;
     }
     
     // Complaints collection
@@ -62,14 +74,36 @@ service cloud.firestore {
     
     // Dinner Votes collection
     match /dinner_votes/{voteId} {
+      // All authenticated users can read dinner votes
       allow read: if isAuthenticated();
-      allow create: if isStudent();
-      allow update: if isStudent() && resource.data.studentId == request.auth.uid;
-      allow delete: if isOwner() || (isStudent() && resource.data.studentId == request.auth.uid);
+      
+      // Only owners can create dinner votes
+      allow create: if isOwner();
+      
+      // Owners can update/delete, students can update vote counts
+      allow update: if isAuthenticated();
+      
+      // Only owners can delete
+      allow delete: if isOwner();
+      
+      // Responses subcollection - students vote here
+      match /responses/{responseId} {
+        allow read: if isAuthenticated();
+        allow create: if isStudent() && request.auth.uid == responseId;
+        allow update: if isStudent() && request.auth.uid == responseId;
+        allow delete: if isOwner() || request.auth.uid == responseId;
+      }
     }
     
-    // Messages/Chat collection
+    // Messages/Chat collection (legacy)
     match /messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow delete: if isOwner() || resource.data.senderId == request.auth.uid;
+    }
+    
+    // Community Chat collection
+    match /community_chat/{messageId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow delete: if isOwner() || resource.data.senderId == request.auth.uid;
@@ -85,6 +119,37 @@ service cloud.firestore {
     match /payments/{paymentId} {
       allow read: if isAuthenticated();
       allow write: if isOwner();
+    }
+    
+    // Notifications collection (general)
+    match /notifications/{notificationId} {
+      // Anyone authenticated can read notifications
+      allow read: if isAuthenticated();
+      
+      // Owners and the system can create notifications
+      allow create: if isAuthenticated();
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated();
+      
+      // Owners can delete any, users can delete their own
+      allow delete: if isOwner() || 
+                       (isAuthenticated() && resource.data.studentId == request.auth.uid);
+    }
+    
+    // User notifications subcollection
+    match /users/{userId}/notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // System/owners can create notifications for any user
+      allow create: if isAuthenticated();
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Users can delete their own notifications
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
     }
   }
 }

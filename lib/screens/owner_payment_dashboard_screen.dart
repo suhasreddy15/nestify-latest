@@ -380,6 +380,12 @@ class _OwnerPaymentDashboardScreenState extends State<OwnerPaymentDashboardScree
                       label: const Text('Receipt'),
                     ),
                     TextButton.icon(
+                      onPressed: () => _resendReceipt(paymentId, paymentData),
+                      icon: const Icon(Icons.send, size: 18),
+                      label: const Text('Resend'),
+                      style: TextButton.styleFrom(foregroundColor: Colors.blue),
+                    ),
+                    TextButton.icon(
                       onPressed: () => _confirmDeletePayment(paymentId, paymentData),
                       icon: const Icon(Icons.delete_outline, size: 18),
                       label: const Text('Delete'),
@@ -399,11 +405,12 @@ class _OwnerPaymentDashboardScreenState extends State<OwnerPaymentDashboardScree
     final amountController = TextEditingController(text: '5000');
     DateTime selectedDate = DateTime.now();
     String selectedPaymentMethod = 'Cash';
+    final rootContext = context; // Save the root context for later use
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setState) => AlertDialog(
           title: const Text('Mark as Paid'),
           content: SingleChildScrollView(
             child: Column(
@@ -482,26 +489,26 @@ class _OwnerPaymentDashboardScreenState extends State<OwnerPaymentDashboardScree
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             ElevatedButton.icon(
               onPressed: () async {
                 final amount = double.tryParse(amountController.text);
                 if (amount == null || amount <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
                     const SnackBar(content: Text('Please enter a valid amount')),
                   );
                   return;
                 }
 
-                Navigator.pop(context);
+                Navigator.pop(dialogContext); // Close the mark as paid dialog
 
-                // Show loading
+                // Show loading dialog
                 showDialog(
-                  context: context,
+                  context: rootContext,
                   barrierDismissible: false,
-                  builder: (context) => const Center(
+                  builder: (loadingContext) => const Center(
                     child: Card(
                       child: Padding(
                         padding: EdgeInsets.all(24.0),
@@ -531,9 +538,9 @@ class _OwnerPaymentDashboardScreenState extends State<OwnerPaymentDashboardScree
                     paymentDate: selectedDate,
                     paymentMethod: selectedPaymentMethod,
                   ).timeout(
-                    const Duration(seconds: 15),
+                    const Duration(seconds: 30),
                     onTimeout: () {
-                      print('UI: Payment creation timed out after 15 seconds');
+                      print('UI: Payment creation timed out after 30 seconds');
                       throw TimeoutException('Payment creation took too long. Please check your internet connection.');
                     },
                   );
@@ -541,8 +548,8 @@ class _OwnerPaymentDashboardScreenState extends State<OwnerPaymentDashboardScree
                   print('UI: Payment creation completed successfully');
                   
                   if (mounted) {
-                    Navigator.pop(context); // Close loading
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    Navigator.of(rootContext).pop(); // Close loading dialog
+                    ScaffoldMessenger.of(rootContext).showSnackBar(
                       const SnackBar(
                         content: Text('Payment recorded successfully!'),
                         backgroundColor: Colors.green,
@@ -553,8 +560,8 @@ class _OwnerPaymentDashboardScreenState extends State<OwnerPaymentDashboardScree
                 } catch (e) {
                   print('UI: Error during payment creation: $e');
                   if (mounted) {
-                    Navigator.pop(context); // Close loading
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    Navigator.of(rootContext).pop(); // Close loading dialog
+                    ScaffoldMessenger.of(rootContext).showSnackBar(
                       SnackBar(
                         content: Text('Error: $e'),
                         backgroundColor: Colors.red,
@@ -602,15 +609,60 @@ class _OwnerPaymentDashboardScreenState extends State<OwnerPaymentDashboardScree
                 ),
               ),
               _buildReceiptRow('Method:', paymentData['paymentMethod'] ?? 'Cash'),
+              _buildReceiptRow('Receipt ID:', paymentData['receiptId'] ?? 'N/A'),
               const Divider(),
-              if (paymentData['receiptUrl'] != null) ...[
+              if (paymentData['receiptUrl'] != null && paymentData['receiptUrl'].toString().isNotEmpty) ...[
                 const SizedBox(height: 8),
-                const Text('Receipt Image:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.picture_as_pdf, color: Colors.red.shade700, size: 32),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'PDF Receipt Available',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              'Click "View PDF" to open the receipt',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
                 const SizedBox(height: 8),
-                Image.network(
-                  paymentData['receiptUrl'],
-                  errorBuilder: (context, error, stackTrace) =>
-                      const Text('Unable to load receipt image'),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.warning_amber, color: Colors.orange, size: 32),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'No receipt file available for this payment',
+                          style: TextStyle(color: Colors.orange),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ],
@@ -618,7 +670,7 @@ class _OwnerPaymentDashboardScreenState extends State<OwnerPaymentDashboardScree
         ),
         actions: [
           if (paymentData['receiptUrl'] != null && paymentData['receiptUrl'].toString().isNotEmpty)
-            TextButton.icon(
+            ElevatedButton.icon(
               onPressed: () async {
                 final receiptUrl = paymentData['receiptUrl'] as String;
                 final uri = Uri.parse(receiptUrl);
@@ -638,8 +690,12 @@ class _OwnerPaymentDashboardScreenState extends State<OwnerPaymentDashboardScree
                   }
                 }
               },
-              icon: const Icon(Icons.download),
-              label: const Text('Download PDF'),
+              icon: const Icon(Icons.picture_as_pdf),
+              label: const Text('View PDF'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+              ),
             ),
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -714,5 +770,153 @@ class _OwnerPaymentDashboardScreenState extends State<OwnerPaymentDashboardScree
         ],
       ),
     );
+  }
+
+  void _resendReceipt(String paymentId, Map<String, dynamic> paymentData) async {
+    // Show confirmation dialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Resend Receipt'),
+        content: Text(
+          'Regenerate and send new receipt to ${paymentData['studentName']}?\n\n'
+          'This will create a fresh PDF receipt and update the receipt URL.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.send),
+            label: const Text('Resend'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Regenerating receipt...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      print('UI: Regenerating receipt for payment: $paymentId');
+      final newReceiptUrl = await _paymentService.regenerateReceipt(paymentId);
+      
+      if (mounted) {
+        Navigator.pop(context); // Close loading
+        
+        // Show success with option to view
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green[700]),
+                const SizedBox(width: 8),
+                const Text('Receipt Sent!'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'New receipt generated and sent to:',
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  paymentData['studentName'] ?? 'Student',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                Text(
+                  paymentData['studentEmail'] ?? '',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 20, color: Colors.green[700]),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Student can view receipt in their Receipt History',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  final uri = Uri.parse(newReceiptUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                icon: const Icon(Icons.visibility),
+                label: const Text('View Receipt'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      print('UI: Error regenerating receipt: $e');
+      if (mounted) {
+        Navigator.pop(context); // Close loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
   }
 }

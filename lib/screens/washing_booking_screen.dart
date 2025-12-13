@@ -111,14 +111,20 @@ class _WashingBookingScreenState extends State<WashingBookingScreen> {
   Future<void> _submitBooking() async {
     if (_selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a date')),
+        const SnackBar(
+          content: Text('Please select a date'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
 
     if (_selectedTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a time')),
+        const SnackBar(
+          content: Text('Please select a time'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
@@ -127,13 +133,19 @@ class _WashingBookingScreenState extends State<WashingBookingScreen> {
 
     try {
       final timeString = _formatTimeOfDay(_selectedTime!);
+      
+      print('📱 UI: Submitting booking...');
+      print('   Date: $_selectedDate');
+      print('   Time: $timeString');
+      
       await _bookingService.createBooking(_selectedDate!, timeString);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Booking created successfully!'),
+            content: Text('✅ Booking created successfully!'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
           ),
         );
         setState(() {
@@ -142,16 +154,20 @@ class _WashingBookingScreenState extends State<WashingBookingScreen> {
         });
       }
     } catch (e) {
+      print('❌ UI: Booking error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(e.toString().replaceAll('Exception: ', '')),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

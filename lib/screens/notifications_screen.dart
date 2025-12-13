@@ -99,8 +99,13 @@ class NotificationsScreen extends StatelessWidget {
         color = Colors.orange;
         break;
       case 'dinner_vote':
+      case 'dinner_vote_reminder':
         icon = Icons.restaurant_menu;
         color = Colors.deepOrange;
+        break;
+      case 'laundry_booking':
+        icon = Icons.local_laundry_service;
+        color = Colors.blue;
         break;
       default:
         icon = Icons.notifications;

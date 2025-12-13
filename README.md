@@ -75,54 +75,39 @@ Professional PDF receipt generation with Firebase Storage
 
 ---
 
-## 🚀 Installation
+## 🚀 Quick Start
 
 ### Prerequisites
+- Flutter SDK 3.0+
+- Firebase account
 
-- Flutter SDK 3.0 or higher
-- Dart SDK 2.19 or higher
-- Android Studio / VS Code with Flutter extensions
-- Firebase account with project setup
+### Installation
 
-### Setup Steps
-
-1. **Clone the repository**
+1. **Clone and install**
    ```bash
    git clone https://github.com/suhasreddy15/nestify.git
    cd nestify
-   ```
-
-2. **Install dependencies**
-   ```bash
    flutter pub get
    ```
 
-3. **Firebase Configuration**
-   - Create a new Firebase project at [Firebase Console](https://console.firebase.google.com)
-   - Add Android/iOS/Web apps to your Firebase project
-   - Download `google-services.json` (Android) and place in `android/app/`
-   - Download `GoogleService-Info.plist` (iOS) and place in `ios/Runner/`
-   - Run FlutterFire CLI:
-     ```bash
-     flutterfire configure
-     ```
-
-4. **Enable Firebase Services**
-   - Authentication (Email/Password & Google Sign-In)
-   - Cloud Firestore
-   - Firebase Storage
-   - Cloud Messaging (optional)
-
-5. **Run the app**
+2. **Firebase setup**
    ```bash
-   # For web
-   flutter run -d chrome
+   # Install FlutterFire CLI
+   dart pub global activate flutterfire_cli
    
-   # For Android
-   flutter run -d <device-id>
-   
-   # For iOS
-   flutter run -d <device-id>
+   # Configure Firebase
+   flutterfire configure
+   ```
+
+3. **Run the app**
+   ```bash
+   flutter run -d chrome    # Web
+   flutter run              # Android/iOS
+   ```
+
+   Or use the PowerShell script:
+   ```powershell
+   .\run.ps1
    ```
 
 ---
@@ -142,18 +127,19 @@ Professional PDF receipt generation with Firebase Storage
 
 ### Key Packages
 ```yaml
-firebase_core: ^2.32.0
-firebase_auth: ^4.20.0
-cloud_firestore: ^4.17.5
-firebase_storage: ^11.7.7
-firebase_messaging: ^14.9.4
+# Firebase
+firebase_core: ^3.15.2
+firebase_auth: ^5.7.0
+cloud_firestore: ^5.6.12
+firebase_storage: ^12.4.10
+firebase_messaging: ^15.2.10
+
+# UI & Utilities
 google_sign_in: ^6.3.0
-pdf: ^3.10.8                    # PDF receipt generation
-printing: ^5.13.1               # PDF printing utilities
-path_provider: ^2.1.2           # File system paths
-file_picker: ^6.2.1             # File selection
-url_launcher: ^6.3.1            # Open URLs/files
-intl: ^0.19.0                   # Date formatting
+pdf: ^3.11.0
+file_picker: ^8.3.7
+intl: ^0.19.0
+cloudinary_public: ^0.23.1    # Image optimization
 ```
 
 ---
@@ -291,10 +277,16 @@ flutter analyze
 
 ## 📖 Documentation
 
-Detailed documentation for specific features:
-- [Payment Management Guide](PAYMENT_MANAGEMENT_README.md)
-- Firebase Security Rules (see Firebase Console)
-- API Documentation (coming soon)
+For detailed feature guides:
+- [Community Chat](COMMUNITY_CHAT_FEATURE.md)
+- [Complaint System](COMPLAINT_FEATURE.md)
+- [Dinner Voting](DINNER_VOTING_FEATURE.md)
+- [Washing Machine Booking](WASHING_BOOKING_FEATURE.md)
+- [Student Profile](STUDENT_PROFILE_FEATURE.md)
+- [Payment Management](PAYMENT_MANAGEMENT_README.md)
+- [Push Notifications](PUSH_NOTIFICATIONS_QUICKSTART.md)
+- [Recent Fixes](LAUNDRY_BOOKING_FIX.md)
+- [Troubleshooting](TROUBLESHOOTING.md)
 
 ---
 
@@ -333,7 +325,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email your-email@example.com or open an issue in the repository.
+For issues or questions:
+- Open an issue on [GitHub](https://github.com/suhasreddy15/nestify/issues)
+- Check [Troubleshooting Guide](TROUBLESHOOTING.md)
 
 ---
 
