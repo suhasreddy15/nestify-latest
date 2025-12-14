@@ -113,14 +113,19 @@ class OwnerStudentDetailsScreen extends StatelessWidget {
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: Colors.blue[100],
-                    child: Text(
-                      (student['fullName'] ?? student['name'] ?? 'S')[0].toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
+                    backgroundImage: student['profilePicUrl'] != null && student['profilePicUrl'].toString().isNotEmpty
+                        ? NetworkImage(student['profilePicUrl'])
+                        : null,
+                    child: student['profilePicUrl'] == null || student['profilePicUrl'].toString().isEmpty
+                        ? Text(
+                            (student['fullName'] ?? student['name'] ?? 'S')[0].toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          )
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -294,14 +299,19 @@ class OwnerStudentDetailsScreen extends StatelessWidget {
                   CircleAvatar(
                     radius: 30,
                     backgroundColor: Colors.blue[100],
-                    child: Text(
-                      (student['fullName'] ?? 'S')[0].toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
+                    backgroundImage: student['profilePicUrl'] != null && student['profilePicUrl'].toString().isNotEmpty
+                        ? NetworkImage(student['profilePicUrl'])
+                        : null,
+                    child: student['profilePicUrl'] == null || student['profilePicUrl'].toString().isEmpty
+                        ? Text(
+                            (student['fullName'] ?? 'S')[0].toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          )
+                        : null,
                   ),
                   const SizedBox(width: 16),
                   Expanded(

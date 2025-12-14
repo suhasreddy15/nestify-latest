@@ -174,6 +174,7 @@ class OwnerStudentsListScreen extends StatelessWidget {
               final phone = studentData['phone'] as String? ?? 
                            studentData['phoneNumber'] as String? ?? 
                            '';
+              final profilePicUrl = studentData['profilePicUrl'] as String?;
 
               return Card(
                 elevation: 2,
@@ -184,13 +185,18 @@ class OwnerStudentsListScreen extends StatelessWidget {
                   ),
                   leading: CircleAvatar(
                     backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    backgroundImage: profilePicUrl != null && profilePicUrl.isNotEmpty
+                        ? NetworkImage(profilePicUrl)
+                        : null,
+                    child: profilePicUrl == null || profilePicUrl.isEmpty
+                        ? Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : '?',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
                   ),
                   title: Text(
                     name,

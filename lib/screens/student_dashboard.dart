@@ -33,6 +33,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     const DinnerVotingScreen(),
     // Washing Machine
     const WashingBookingScreen(),
+    // Complaints
+    const StudentComplaintScreen(),
   ];
 
   void _onTap(int index) {
@@ -233,6 +235,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             icon: Icon(Icons.local_laundry_service_outlined),
             selectedIcon: Icon(Icons.local_laundry_service),
             label: 'Laundry',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.report_problem_outlined),
+            selectedIcon: Icon(Icons.report_problem),
+            label: 'Complaints',
           ),
         ],
       ),

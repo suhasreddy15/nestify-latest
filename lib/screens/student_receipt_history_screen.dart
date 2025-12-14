@@ -343,57 +343,13 @@ class StudentReceiptHistoryScreen extends StatelessWidget {
               _buildDetailRow('Payment Method', paymentMethod),
               _buildDetailRow('Status', 'PAID', valueColor: Colors.green),
               _buildDetailRow('Generated On', DateFormat('dd MMM yyyy, hh:mm a').format(createdAt)),
-              if (receiptUrl != null && receiptUrl.isNotEmpty) ...[
-                const Divider(height: 32),
-                const Text(
-                  'Receipt Image',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    receiptUrl,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 200,
-                        alignment: Alignment.center,
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                              : null,
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 200,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.broken_image, size: 48, color: Colors.grey[400]),
-                          const SizedBox(height: 8),
-                          const Text('Unable to load receipt image'),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
               const SizedBox(height: 32),
               Row(
                 children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        if (receiptUrl != null && receiptUrl.isNotEmpty) {
+                  if (receiptUrl != null && receiptUrl.isNotEmpty)
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
                           final uri = Uri.parse(receiptUrl);
                           if (await canLaunchUrl(uri)) {
                             await launchUrl(
@@ -410,18 +366,18 @@ class StudentReceiptHistoryScreen extends StatelessWidget {
                               );
                             }
                           }
-                        }
-                      },
-                      icon: const Icon(Icons.download),
-                      label: const Text('Download PDF'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.all(16),
-                        backgroundColor: Colors.green[700],
-                        foregroundColor: Colors.white,
+                        },
+                        icon: const Icon(Icons.download),
+                        label: const Text('Download PDF'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                          backgroundColor: Colors.green[700],
+                          foregroundColor: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                  if (receiptUrl != null && receiptUrl.isNotEmpty)
+                    const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () => Navigator.pop(context),

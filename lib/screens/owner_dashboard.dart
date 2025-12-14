@@ -190,10 +190,22 @@ class _OwnerHomePage extends StatelessWidget {
               stream: FirebaseFirestore.instance
                   .collection('users')
                   .where('role', isEqualTo: 'student')
-                  .where('ownerId', isEqualTo: userId)
                   .snapshots(),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  print('Error loading students count: ${snapshot.error}');
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return _StatisticCard(
+                    icon: Icons.group,
+                    title: 'Total Students',
+                    value: '...',
+                    color: Colors.blue,
+                    onTap: () {},
+                  );
+                }
                 final count = snapshot.hasData ? snapshot.data!.docs.length : 0;
+                print('Students count: $count');
                 return _StatisticCard(
                   icon: Icons.group,
                   title: 'Total Students',

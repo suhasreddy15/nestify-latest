@@ -158,7 +158,7 @@ class PaymentService {
                         ),
                       ),
                       pw.Text(
-                        '₹${amount.toStringAsFixed(2)}',
+                        'INR ${amount.toStringAsFixed(2)}',
                         style: pw.TextStyle(
                           fontSize: 28,
                           fontWeight: pw.FontWeight.bold,
