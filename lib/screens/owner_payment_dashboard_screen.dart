@@ -376,18 +376,18 @@ class _OwnerPaymentDashboardScreenState extends State<OwnerPaymentDashboardScree
                   children: [
                     TextButton.icon(
                       onPressed: () => _viewReceipt(paymentData),
-                      icon: const Icon(Icons.receipt, size: 18),
+                      icon: const Icon(Icons.receipt, size: 17),
                       label: const Text('Receipt'),
                     ),
                     TextButton.icon(
                       onPressed: () => _resendReceipt(paymentId, paymentData),
-                      icon: const Icon(Icons.send, size: 18),
+                      icon: const Icon(Icons.send, size: 17),
                       label: const Text('Resend'),
                       style: TextButton.styleFrom(foregroundColor: Colors.blue),
                     ),
                     TextButton.icon(
                       onPressed: () => _confirmDeletePayment(paymentId, paymentData),
-                      icon: const Icon(Icons.delete_outline, size: 18),
+                      icon: const Icon(Icons.delete_outline, size: 17),
                       label: const Text('Delete'),
                       style: TextButton.styleFrom(foregroundColor: Colors.red),
                     ),
@@ -412,79 +412,88 @@ class _OwnerPaymentDashboardScreenState extends State<OwnerPaymentDashboardScree
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setState) => AlertDialog(
           title: const Text('Mark as Paid'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  studentData['fullName'] ?? 'Student',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
-                const SizedBox(height: 4),
-                Text(studentData['email'] ?? '', style: const TextStyle(color: Colors.grey)),
-                const Divider(height: 24),
-                const Text('Amount', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: amountController,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    prefixText: '₹ ',
-                    hintText: 'Enter amount',
+          content: SizedBox(
+            width: MediaQuery.of(dialogContext).size.width * 0.85,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    studentData['fullName'] ?? 'Student',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 16),
-                const Text('Payment Date', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                    );
-                    if (date != null) {
-                      setState(() => selectedDate = date);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(4),
+                  const SizedBox(height: 4),
+                  Text(studentData['email'] ?? '', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                  const Divider(height: 20),
+                  const Text('Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: amountController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      prefixText: '₹ ',
+                      hintText: 'Enter amount',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.calendar_today, size: 20),
-                        const SizedBox(width: 12),
-                        Text(DateFormat('dd MMM yyyy').format(selectedDate)),
-                      ],
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Payment Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (date != null) {
+                        setState(() => selectedDate = date);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.calendar_today, size: 18),
+                          const SizedBox(width: 10),
+                          Text(DateFormat('dd MMM yyyy').format(selectedDate), style: const TextStyle(fontSize: 14)),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Text('Payment Method', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: selectedPaymentMethod,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 12),
+                  const Text('Payment Method', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: selectedPaymentMethod,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'Cash', child: Text('Cash', style: TextStyle(fontSize: 14))),
+                      DropdownMenuItem(value: 'Online Transfer', child: Text('Online Transfer', style: TextStyle(fontSize: 14))),
+                      DropdownMenuItem(value: 'UPI', child: Text('UPI', style: TextStyle(fontSize: 14))),
+                      DropdownMenuItem(value: 'Card', child: Text('Card', style: TextStyle(fontSize: 14))),
+                      DropdownMenuItem(value: 'Cheque', child: Text('Cheque', style: TextStyle(fontSize: 14))),
+                    ],
+                    onChanged: (value) {
+                      setState(() => selectedPaymentMethod = value!);
+                    },
+                    style: const TextStyle(fontSize: 14),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                    DropdownMenuItem(value: 'Online Transfer', child: Text('Online Transfer')),
-                    DropdownMenuItem(value: 'UPI', child: Text('UPI')),
-                    DropdownMenuItem(value: 'Card', child: Text('Card')),
-                    DropdownMenuItem(value: 'Cheque', child: Text('Cheque')),
-                  ],
-                  onChanged: (value) {
-                    setState(() => selectedPaymentMethod = value!);
-                  },
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           actions: [
